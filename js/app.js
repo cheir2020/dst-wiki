@@ -1270,9 +1270,18 @@ function applyHero(viewId) {
      所以这里必须用 ../images/ 而不是 imgUrl() 返回的 images/。
      之前用裸路径，浏览器去请求 /css/images/art_bg_marsh.jpg，一直 404，
      页面底图其实从来没有显示出来过。 */
-  const url = (window.DST_IMG_DATA && window.DST_IMG_DATA[file])
-    ? window.DST_IMG_DATA[file]                       /* 单文件版：base64，绝对可用 */
-    : new URL('../images/' + file, document.baseURI).href;  document.body.style.setProperty('--bg-art', `url("${url}")`);
+  let url;
+  if (window.DST_IMG_DATA && window.DST_IMG_DATA[file]) {
+    url = window.DST_IMG_DATA[file];          /* 单文件版：base64，绝对可用 */
+  } else {
+    /* 先算出站点根（document.baseURI 去掉末尾文件名），再拼 images/。
+       这样 /、/dst-wiki/（GitHub Pages 子路径）、file:// 都能正确解析。
+       曾经写死 '../images/'，在根路径下侥幸正确，但在 /dst-wiki/ 下会
+       跳出去变成 https://user.github.io/images/... → 404。 */
+    const base = document.baseURI.replace(/[^/]*$/, '');
+    url = new URL('images/' + file, base).href;
+  }
+  document.body.style.setProperty('--bg-art', `url("${url}")`);
   document.body.dataset.view = viewId;
 }
 
