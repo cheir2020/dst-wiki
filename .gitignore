@@ -1,0 +1,22 @@
+# ============================================================
+# DST Wiki - repository ignore rules
+# ------------------------------------------------------------
+# Only the website itself is versioned here, not the dev workspace.
+# The site needs just: index.html + css/ + js/ + images/ + .nojekyll
+# ============================================================
+
+# Dev tooling and build leftovers (large, not part of the site)
+tools/
+dist/
+deploy/
+
+# Build / dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Temporary files
+_tmp_*
+*.bak
+*.log
+*单文件版*.html

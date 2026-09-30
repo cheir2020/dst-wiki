@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>饥荒联机版百科 · Don't Starve Together</title>
+<meta name="description" content="饥荒联机版（Don't Starve Together）中文图鉴：料理、食材、生物、制作、环境、地图彩蛋、资源与角色，含数值、配方与掉落。">
+<!-- 图标内联成 data URI：不额外产生文件，也不会有 favicon.ico 404 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23211c18'/%3E%3Cpath d='M8 13h16M9.5 13a7 7 0 0 0 13 0M6 13h20' stroke='%23e8a33d' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ================= 顶部栏 =================
+     结构：品牌 + 全局搜索。
+     移动端默认只显示品牌（一行），搜索收进一个放大镜按钮；
+     点开后才展开输入框，这样首屏不再被两条「搜索框」占掉 100+px。
+     桌面端（>=1024px）品牌移进侧栏，这里就只剩搜索，直接常显。 -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div class="brand-text">
+        <h1>饥荒联机版百科</h1>
+        <p>Don't Starve Together</p>
+      </div>
+    </div>
+    <button class="gs-toggle" id="gsToggle" type="button"
+            aria-label="搜索" aria-expanded="false" aria-controls="globalSearchPanel">
+      <span class="gs-toggle-ico" aria-hidden="true"></span>
+    </button>
+  </div>
+
+  <section class="global-search" id="globalSearchPanel" hidden>
+    <div class="global-search-inner">
+      <div class="global-search-row">
+        <input id="globalSearch" type="search" inputmode="search" autocomplete="off"
+               placeholder="搜索料理、食材、生物、角色、制作与资源">
+        <button id="globalSearchClose" class="global-search-close" type="button" aria-label="收起搜索">关闭</button>
+      </div>
+      <div id="globalResults" class="global-results" hidden></div>
+    </div>
+  </section>
+</header>
+
+<!-- ================= 料理（料理 / 食材 / 机制 / 计算器） ================= -->
+<main id="view-cook" class="view active">
+  <div class="segbar-main" id="cookSegbar"></div>
+
+  <!-- 料理图鉴 -->
+  <section class="subview" id="sub-dishes">
+    <div class="lib-tools">
+      <label class="fld">
+        <span class="fld-label">搜索料理</span>
+        <input id="search" type="search" placeholder="如：肉丸、火龙果派、太妃糖" autocomplete="off">
+      </label>
+      <div class="chipbar" id="chipbar" role="group" aria-label="料理筛选"></div>
+    </div>
+    <div id="grid" class="grid"></div>
+    <p class="empty" id="emptyTip" hidden>没有匹配的料理，换个关键词试试。</p>
+  </section>
+
+  <!-- 食材库 -->
+  <section class="subview" id="sub-lib" hidden>
+    <div class="lib-tools">
+      <label class="fld">
+        <span class="fld-label">搜索食材</span>
+        <input id="libSearch" type="search" placeholder="如：大肉、冰块、蜂蜜" autocomplete="off">
+      </label>
+      <div class="segbar" id="segbar" role="tablist" aria-label="食材分类"></div>
+    </div>
+    <div id="libGrid" class="grid"></div>
+    <p class="empty" id="libEmpty" hidden>没有匹配的食材。</p>
+
+    <details class="card collapse">
+      <summary>食物度速查表（按类型查数值）</summary>
+      <p class="hint">食物度是「能做出什么料理」的判定依据；同一族的食材可以直接互换数值。</p>
+      <div id="foodTable" class="food-table"></div>
+    </details>
+
+    <details class="card collapse">
+      <summary>食物度与数值说明</summary>
+      <ul class="list">
+        <li><b>食物度</b>：进锅用的「配方分值」（肉度 / 蔬菜度 / 水果度…），它决定能做什么料理，和直接吃的恢复量是两回事。</li>
+        <li><b>生食 / 熟食三维</b>：直接吃掉能回多少饥饿、生命、理智。很多食材「烤一下」就会从扣血变回血。</li>
+        <li><b>保质期</b>：放进冰箱会更久；冰箱里的时间通常按 4 倍计算（地上 / 冰箱外的消耗更快）。</li>
+        <li>标注「—」的项目是官方资料未明确的数值，标注「喂牛」的是玩家不能吃的非冒险家食物。</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- 烹饪机制 -->
+  <section class="subview" id="sub-mech" hidden>
+    <section class="card">
+      <h2>烹饪是如何判定的</h2>
+      <ol class="steps">
+        <li>把 4 个锅位全部填满，系统先把所有食材的<b>食物度</b>分别求和。</li>
+        <li>筛出全部「要求被满足」的食谱。</li>
+        <li>其中<b>优先级最高</b>的食谱胜出（优先级为负的如肉丸 −1、湿糯糊糊 −10，只会垫底）。</li>
+        <li>最高优先级出现并列时，在并列食谱里<b>等概率随机</b>。</li>
+        <li>没有符合条件的食谱 → 得到「湿糯糊糊」。</li>
+      </ol>
+      <p class="hint">实战提醒：只要有 2 点怪物度，通常就会被优先级 10 的「怪物千层饼」截胡；放怪物肉时一次只放一个最稳。</p>
+    </section>
+
+    <section class="card">
+      <h2>新鲜度与保质期</h2>
+      <ul class="list">
+        <li>料理新鲜度 = 1 − (1 − 食材新鲜度平均值) × 0.5，也就是说<b>做菜会让变质程度减半</b>。</li>
+        <li>如果食材全部没有新鲜度（冰块、树枝、蜂蜜等），成品新鲜度为 100%。</li>
+        <li>保质期分档：≤6 天＝迅速腐烂，≤10 天＝平均，≤15 天＝缓慢，15 天以上＝非常缓慢，另有<b>永不腐烂</b>（彩虹糖豆等）。</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>烹饪时间分档</h2>
+      <ul class="list">
+        <li>&lt; 20 秒＝短（肉丸、果酱、冰淇淋、蔬菜鸡尾酒…）</li>
+        <li>&lt; 40 秒＝平均（波兰水饺、海鲜牛排、早餐锅…）</li>
+        <li>&lt; 50 秒＝长（火龙果派、太妃糖、炸鱼排、炸鱼头…）</li>
+        <li>≥ 50 秒＝极长（曼德拉草汤 60 秒、火鸡正餐 60 秒）</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>变温食物（升温 / 降温）</h2>
+      <p class="hint">变温食物食用后在持续时间内改变<b>体感温度</b>，效果不叠加，吃新的会覆盖旧的。</p>
+      <ul class="list">
+        <li>升温 +40：辣椒炖肉（15 秒）、蜜汁火腿（10 秒）、火龙果派（10 秒）、肉串（15 秒）、酿茄子（5 秒）、炖兔子（5 秒）、火鸡正餐（10 秒）、爆炒填馅辣椒（15 秒）、无花果烤串 / 无花果蛙腿三明治（15 秒）、舒缓茶（5 秒）</li>
+        <li>降温 −40：冰香蕉冻唇蜜、酸橘汁腌鱼、西瓜冰棍（均 10 秒）</li>
+        <li>长时间极端温度：辣龙椒沙拉（升温 5 分钟）、芦笋冷汤（降温 5 分钟）、火荨麻茶（2 分钟）——这几个不会被环境冷却衰减</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>喜爱的食物（喜爱料理加成）</h2>
+      <p class="hint">除沃利外，每个角色都有「喜爱的食物」，食用后可获得<b>额外 +15 饥饿</b>（页面上标的亲和倍率 = 1 + 15 ÷ 该料理饥饿值）。要看角色完整资料，去底部「角色」页。</p>
+      <div id="favTable" class="fav-table"></div>
+    </section>
+
+    <section class="card">
+      <h2>沃利（大厨）专属规则</h2>
+      <ul class="list">
+        <li>自带<b>便携烹饪锅</b>，可移动烹饪（1.25 倍速度），并能做出 11 道专属料理（本图鉴已标注「沃利专属」）。</li>
+        <li>只吃烹饪锅做的料理、饥饿消耗更快（1.2 倍），并且<b>连续吃同一种料理收益会递减</b>（−10% → −70%，隔两天不吃即可重置）。</li>
+        <li>可用调味料给料理附加额外效果：辣椒粉（减伤 33%）、蒜粉（采伐速度翻倍）、蜂蜜水晶（伤害 +20%）、盐（回血 ×1.25）。</li>
+      </ul>
+    </section>
+
+    <p class="dateline">料理立绘与状态图标使用官方游戏素材；数值为当前正式版本数据，标注「—」的是官方资料中未明确给出的项。版本更新后仍可能微调，以游戏内为准。</p>
+  </section>
+
+  <!-- 烹饪计算器 -->
+  <section class="subview" id="sub-calc" hidden>
+    <section class="card">
+      <h2>四个锅位</h2>
+      <p class="hint">点下方食材加入锅位，实时推导会做出什么料理（按「烹饪要求 + 优先级」判定）。</p>
+      <div class="slots" id="slots"></div>
+      <div class="slot-actions">
+        <button class="btn ghost" id="clearSlots">清空锅位</button>
+        <button class="btn ghost" id="randomFill">随机搭配</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>食物度合计</h2>
+      <div id="tagSum" class="tags"></div>
+    </section>
+
+    <section class="card">
+      <h2>产出预判</h2>
+      <label class="chk"><input type="checkbox" id="calcWarly"> 把沃利专属料理也算进来（需便携烹饪锅）</label>
+      <div id="calcResult" class="calc-result"></div>
+    </section>
+
+    <section class="card">
+      <h2>选择食材</h2>
+      <input id="ingSearch" type="search" placeholder="搜索食材（如：大肉、冰块、蜂蜜）">
+      <div id="ingList" class="ing-list"></div>
+    </section>
+  </section>
+</main>
+
+<!-- ================= 生物图鉴 ================= -->
+<main id="view-mobs" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">点任意条目展开完整数据：血量 / 伤害 / 攻速 / 出现条件 / 掉落物 / 打法。分类按「是否主动攻击」划分——<b>敌对</b>＝看见你就动手，<b>中立</b>＝被打才还手，<b>被动</b>＝不会攻击。数值为联机版数据。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索生物</span>
+      <input id="mobSearch" type="search" placeholder="如：独眼巨鹿、蜘蛛、海象" autocomplete="off">
+    </label>
+    <div class="segbar" id="mobSegbar" role="tablist" aria-label="生物分类"></div>
+  </div>
+  <div id="mobGrid" class="mob-grid"></div>
+  <p class="empty" id="mobEmpty" hidden>没有匹配的生物。</p>
+
+  <details class="footnote">
+    <summary>字段速查：这些数值分别是什么意思</summary>
+    <div class="footnote-body">
+      <dl class="quickref">
+        <div class="qr"><dt>分类</dt><dd>按<b>实际行为</b>划分：<b>敌对</b>＝看见你就动手；<b>中立</b>＝被打才还手；<b>被动</b>＝只会逃跑或完全无害。</dd></div>
+        <div class="qr"><dt>生命值</dt><dd>联机版数值（普遍高于单机版）。写成「x / y / z」的是分阶段或按体型变化。</dd></div>
+        <div class="qr"><dt>伤害</dt><dd>只在官方维基明确区分时才标注「对玩家 X」——Boss 对玩家常只造成 50%–75%。</dd></div>
+        <div class="qr"><dt>攻击间隔</dt><dd>越小越难躲，「打一走一 / 打二走一」的节奏就是按它算的。</dd></div>
+        <div class="qr"><dt>理智光环</dt><dd>站在它附近每分钟的理智变化。负数掉理智，正数（格罗姆、猪人、天体英雄）回理智。</dd></div>
+        <div class="qr"><dt>低理智形态</dt><dd>理智低于 40% 时兔子变胡须兔、兔人变胡须领主（都带 −40 光环，掉胡须与噩梦燃料）。</dd></div>
+        <div class="qr"><dt>月后生物</dt><dd>致命亮茄、墨影五怪、水晶冠秃鹫等带「域面实体保护」，要用域面武器才打得快。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">数值按官方维基各生物的联机版词条逐条核对（2026-09）；版本更新后仍可能微调，以游戏内为准。</p>
+</main>
+
+<!-- ================= 角色图鉴 ================= -->
+<main id="view-chars" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">点任意角色查看：三维上限 / 喜爱食物与加成 / 初始物品 / 能力与缺点 / 上手建议。最后的「居民 / NPC」分段收录猪王、寄居蟹老奶奶这些能互动但不能玩的角色。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索角色</span>
+      <input id="charSearch" type="search" placeholder="如：威尔逊、旺达、猪王" autocomplete="off">
+    </label>
+    <div class="segbar" id="charSegbar" role="tablist" aria-label="角色分类"></div>
+  </div>
+  <div id="charGrid" class="mob-grid"></div>
+  <p class="empty" id="charEmpty" hidden>没有匹配的角色。</p>
+
+  <details class="footnote">
+    <summary>字段速查：三维、喜爱食物与解锁方式</summary>
+    <div class="footnote-body">
+      <dl class="quickref">
+        <div class="qr"><dt>三维</dt><dd>生命 / 饥饿 / 理智的<b>上限</b>，只决定能撑多久，不直接决定输出。</dd></div>
+        <div class="qr"><dt>喜爱食物</dt><dd>吃到时额外 <b>+15 饥饿</b>。页面上的亲和倍率 = 1 + 15 ÷ 该料理的饥饿值。</dd></div>
+        <div class="qr"><dt>初始物品</dt><dd>进入新世界时背包里自带的东西，多数是角色专属道具。</dd></div>
+        <div class="qr"><dt>解锁</dt><dd>角色都能免费玩；<b>薇诺娜、沃利、沃拓克斯、沃姆伍德、沃特、沃尔特、旺达</b> 需用线团编织或直接购买。</dd></div>
+        <div class="qr"><dt>隐藏角色</dt><dd>芜猴不能选，只能被月港海盗猴的诅咒变成；解除办法见它自己的词条。</dd></div>
+        <div class="qr"><dt>居民 / NPC</dt><dd>猪王、寄居蟹老奶奶、猴子女王等不能游玩、没有三维——它们是交易对象与任务发布人。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">数值与特性按官方维基的联机版词条核对（2026-09）。</p>
+</main>
+
+<!-- ================= 物品 · 制作图鉴 ================= -->
+<main id="view-items" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">像游戏里的「制作」界面一样：先选一个分类（冒险家物品 / 工具 / 光源…），再看这一栏里能做什么。点条目看配方、制作条件与用途。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索物品 / 材料 / 制作站</span>
+      <input id="itemSearch" type="search" placeholder="如：火腿棒、木板、炼金引擎" autocomplete="off">
+    </label>
+    <div class="crumb" id="itemsCrumb" hidden></div>
+  </div>
+  <div id="itemsGrid" class="filter-grid"></div>
+  <p class="empty" id="itemsEmpty" hidden>这一栏还没有收录条目。</p>
+
+  <details class="footnote" id="itemsRefCard">
+    <summary>字段速查：配方与制作条件怎么看</summary>
+    <div class="footnote-body">
+      <dl class="quickref">
+        <div class="qr"><dt>分类</dt><dd>与游戏里制作界面的<b>筛选栏一一对应</b>，共 45 栏，顺序也照游戏排。</dd></div>
+        <div class="qr"><dt>冒险家物品</dt><dd>先点分类、再点角色头像，才会展开该角色的专属物品（威尔逊炼金、薇洛打火机、旺达钟表…）。</dd></div>
+        <div class="qr"><dt>配方</dt><dd>写的是「几个什么材料」，与游戏内一致。</dd></div>
+        <div class="qr"><dt>制作条件</dt><dd>分三种：<b>原型科技解锁</b>（造过一次后通常可在任意地点做）、<b>专用制作站</b>（每次都要在该站做）、<b>威尔逊炼金转化</b>（角色技能，不需要机器）。</dd></div>
+        <div class="qr"><dt>未记录</dt><dd>官方资料里没查到确切制作条件。这里不推断为徒手或开局可做，请以游戏内显示为准。</dd></div>
+        <div class="qr"><dt>重复出现</dt><dd>同一件物品可能同时属于好几个分类（如「木板」既在精炼材料也在木工），这是游戏原本的设定。</dd></div>
+        <div class="qr"><dt>原材料</dt><dd>木头、猪皮、蜘蛛丝这类收在「资源」页，配方与材料之间可以互相跳转。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">分类与配方按官方维基的 45 个制作筛选栏逐条整理（2026-09）。</p>
+</main>
+
+<!-- ================= 资源图鉴：原材料 + 世界生态 ================= -->
+<main id="view-resources" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">原材料、植物、群系、建筑、矿物与岛屿资料集中在这里。点条目查看获取方式、产出、分布及关联制作；详情里的材料还能互相跳转。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索资源</span>
+      <input id="resourceSearch" type="search" placeholder="如：木头、亮壳、月亮碎片" autocomplete="off">
+    </label>
+    <div class="segbar" id="resourceSegbar" role="tablist" aria-label="资源大类"></div>
+    <div class="chipbar" id="resourceChipbar" role="group" aria-label="资源子类"></div>
+    <p class="hint scope" id="resourceScope" role="status" aria-live="polite"></p>
+  </div>
+  <div id="resourceGrid" class="mob-grid"></div>
+  <p class="empty" id="resourceEmpty" hidden></p>
+
+  <details class="footnote">
+    <summary>字段速查：这些资料是怎么分类的</summary>
+    <div class="footnote-body">
+      <ul class="list" id="worldRefList"></ul>
+      <dl class="quickref">
+        <div class="qr"><dt>怎么获得</dt><dd>靠采集、打怪、挖掘或交易；详情里的「用于制作」会列出本百科收录的配方，可直接跳转。</dd></div>
+        <div class="qr"><dt>掉落自</dt><dd>由生物条目自动反查生成，双向都能点——从生物也能跳回材料。</dd></div>
+        <div class="qr"><dt>在世界里的产出</dt><dd>这个材料能从哪些植物、建筑或地形上获得。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">数值与来源按官方维基的联机版词条整理（2026-09）；版本更新后可能微调，以游戏内为准。</p>
+</main>
+
+<!-- ================= 环境 · 天气 ================= -->
+<main id="view-env" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">这里收录「会发生的事」——降雨、闪电、野火、陨石、地震、酸雨这类天气与灾害，以及过热、冻僵、黑暗这些生存机制。每条都写了<b>触发条件 / 后果 / 关键数值 / 怎么防</b>。要找「东西」（植物、建筑、矿物）请去「资源」页。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索环境与天气</span>
+      <input id="envSearch" type="search" placeholder="如：下雨、野火、地震、过热" autocomplete="off">
+    </label>
+    <div class="segbar" id="envSegbar" role="tablist" aria-label="环境分类"></div>
+    <div class="chipbar" id="envChipbar" role="group" aria-label="环境子类"></div>
+    <p class="hint scope" id="envScope" role="status" aria-live="polite"></p>
+  </div>
+  <div id="envGrid" class="mob-grid"></div>
+  <p class="empty" id="envEmpty" hidden>没有匹配的天气或机制。</p>
+
+  <details class="footnote">
+    <summary>季节速查：每个季节主要防什么</summary>
+    <div class="footnote-body">
+      <dl class="quickref">
+        <div class="qr"><dt>春</dt><dd>降雨最频繁、雷击高发；第一场雨会让兔子洞塌陷，蜜蜂变凶。</dd></div>
+        <div class="qr"><dt>夏</dt><dd>过热与野火是主要威胁；绿洲沙漠的沙尘暴反而能挡住野火。蚁狮在夏季出现。</dd></div>
+        <div class="qr"><dt>秋</dt><dd>最温和的季节：降雨中等、没有极端温度，适合建家与囤资源。</dd></div>
+        <div class="qr"><dt>冬</dt><dd>冻僵与暴雪，企鹅与海象出现；作物停止生长，要提前囤粮。</dd></div>
+        <div class="qr"><dt>洞穴</dt><dd>不受地表季节影响，但地震、酸雨与瘴气都在地下。自带 240 隔热，夏天避暑常用。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">机制与数值按官方维基的联机版词条核对（2026-09）；版本更新后可能微调，以游戏内为准。</p>
+</main>
+
+<!-- ================= 地图彩蛋（布景） ================= -->
+<main id="view-setpiece" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">地图彩蛋（官方叫「布景 / Set Piece」）是<b>世界生成时随机刷出的一小片场景</b>——不是自然地形，而是刻意摆好的组合，比如草地里藏着的杀人蜂巢、围栏里埋伏的爆炸箱。<br>这页按<b>出现位置</b>分组，每条标了<b>危险度</b>和<b>能捞到什么</b>。看到眼熟的场景可以搜关键词对照。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索地图彩蛋</span>
+      <input id="spSearch" type="search" placeholder="如：杀人蜂、墓碑、绿洲、舞台" autocomplete="off">
+    </label>
+    <div class="segbar" id="spSegbar" role="tablist" aria-label="出现位置"></div>
+    <div class="chipbar" id="spChipbar" role="group" aria-label="危险度与版本"></div>
+    <p class="hint scope" id="spScope" role="status" aria-live="polite"></p>
+  </div>
+  <div id="spGrid" class="mob-grid"></div>
+  <p class="empty" id="spEmpty" hidden>没有匹配的地图彩蛋。</p>
+
+  <details class="footnote">
+    <summary>关于这些名字：为什么和你听到的叫法不一样</summary>
+    <div class="footnote-body">
+      <p class="hint" style="margin:0 0 8px">官方维基明确说明：<b>大部分布景的名字是社区起的昵称，并非官方定名</b>。所以「杀人蜂陷阱」「芦苇陷阱」「高脚鸟要塞」这类叫法你在别处可能看到不同写法，指的都是同一个场景。真正权威的是游戏内的调试 ID（每条的「游戏内 ID」一项）。</p>
+      <dl class="quickref">
+        <div class="qr"><dt>怎么分真假</dt><dd>带建筑、地板、墙的场景是「布景」；只有一具骷髅加几件散落物品的是「遇难者遗骸」，<b>后者永远不是陷阱</b>。</dd></div>
+        <div class="qr"><dt>骷髅类</dt><dd>官方统称「遇难者遗骸（Fallen Survivors）」，出现频率可以在世界设置里调，布景则不能。</dd></div>
+        <div class="qr"><dt>单机版专属</dt><dd>「木制传送台（Things）」「麦斯威尔之门」「猪人堡垒」等只在单机版 / 冒险模式里，联机版没有，本页不收。</dd></div>
+      </dl>
+    </div>
+  </details>
+  <p class="dateline">场景内容与掉落按官方维基「Set Piece/DST」逐条核对（2026-09）。</p>
+</main>
+
+<!-- ================= 收藏夹 ================= -->
+<main id="view-fav" class="view">
+  <div class="lib-tools">
+    <details class="howto">
+      <summary>这页怎么用</summary>
+      <p class="hint" style="margin:6px 0 0">在任意词条详情里点右上角的 <b>☆</b> 就能收藏，收藏会存在你这台设备上（换设备 / 清缓存会丢）。点条目直接跳回原词条。</p>
+    </details>
+    <label class="fld">
+      <span class="fld-label">搜索收藏</span>
+      <input id="favSearch" type="search" placeholder="在收藏里筛选" autocomplete="off">
+    </label>
+    <p class="hint scope" id="favScope" role="status" aria-live="polite"></p>
+  </div>
+  <div id="favGrid" class="mob-grid"></div>
+  <p class="empty" id="favEmpty" hidden>还没有收藏。打开任意词条，点右上角的 ☆ 即可加入。</p>
+  <div class="fav-actions" id="favActions" hidden>
+    <button class="btn ghost" id="favClear" type="button">清空全部收藏</button>
+  </div>
+</main>
+
+<!-- ================= 详情面板 ================= -->
+<div class="sheet-mask" id="sheetMask" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="词条详情" hidden></section>
+
+<!-- ================= 主导航 =================
+     同一份 DOM 承担两种形态（只靠 CSS 切换，JS 不需要知道）：
+       < 1024px  底部横向 tab 条（原来的样子）
+       >=1024px  左侧竖向侧边栏
+     图标用统一的线性 SVG（见 css 的 .ico svg），不再用 emoji——
+     emoji 在不同系统上字形、大小、颜色都不一样，底部一排看着很花。 -->
+<nav class="tabbar" id="tabbar" aria-label="主导航">
+  <div class="tabbar-inner">
+    <p class="nav-title">饥荒联机版百科</p>
+    <button class="tab active" data-view="view-cook">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">料理</span></button>
+    <button class="tab" data-view="view-mobs">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">生物</span></button>
+    <button class="tab" data-view="view-items">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">制作</span></button>
+    <button class="tab" data-view="view-env">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">环境</span></button>
+    <button class="tab" data-view="view-setpiece">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">彩蛋</span></button>
+    <button class="tab" data-view="view-resources">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">资源</span></button>
+    <button class="tab" data-view="view-chars">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">角色</span></button>
+    <button class="tab" data-view="view-fav">
+      <span class="ico" aria-hidden="true"></span><span class="tab-label">收藏</span><i class="tab-badge" id="favBadge" hidden>0</i></button>
+  </div>
+</nav>
+ <p class="sr-only" id="liveRegion" role="status" aria-live="polite"></p>
+
+<script src="js/data.js"></script>
+<script src="js/ingredients.js"></script>
+<script src="js/creatures.js"></script>
+<script src="js/environment.js"></script>
+<script src="js/setpieces.js"></script>
+<script src="js/items.js"></script>
+<script src="js/materials.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/world.js"></script>
+<script src="js/router.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
